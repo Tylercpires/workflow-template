@@ -1,0 +1,30 @@
+#T. Pires - update-pr-description.yml - GitHub Actions workflow that automatically updates a PR's description with the 
+#concatenated commit messages from the branch. Note: My commit descriptions are lists, so PR descriptions should end up
+#looking like a "change log" in list form.
+#Created 2026-04-19
+#Last Updated 2026-04-19
+
+name: Update PR Description from Commits
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  update-description:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build description from commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+          BODY=$(git log --pretty=format:"## %s%n%n%b" $BASE..$HEAD)
+          gh pr edit ${{ github.event.pull_request.number }} --body "$BODY"
