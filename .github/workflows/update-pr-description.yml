@@ -23,8 +23,44 @@ jobs:
       - name: Build description from commits
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          BASE=${{ github.event.pull_request.base.sha }}
-          HEAD=${{ github.event.pull_request.head.sha }}
-          BODY=$(git log --pretty=format:"## %s%n%n%b" $BASE..$HEAD)
+          BODY=$(python3 <<'PYEOF'
+          import subprocess, os
+          from collections import OrderedDict
+
+          base = os.environ['PR_BASE']
+          head = os.environ['PR_HEAD']
+
+          result = subprocess.run(
+              ['git', 'log', '--reverse', f'{base}..{head}', '--format=%s%x00%b%x1E'],
+              capture_output=True, text=True
+          )
+
+          grouped = OrderedDict()
+          for entry in result.stdout.split('\x1e'):
+              entry = entry.strip()
+              if not entry:
+                  continue
+              subject, _, body = entry.partition('\x00')
+              subject = subject.strip()
+              body = body.strip()
+              if not subject:
+                  continue
+              if subject not in grouped:
+                  grouped[subject] = []
+              if body:
+                  grouped[subject].append(body)
+
+          sections = []
+          for subject, bodies in grouped.items():
+              section = f'## {subject}'
+              if bodies:
+                  section += '\n\n' + '\n'.join(bodies)
+              sections.append(section)
+
+          print('\n\n'.join(sections))
+          PYEOF
+          )
           gh pr edit ${{ github.event.pull_request.number }} --body "$BODY"
