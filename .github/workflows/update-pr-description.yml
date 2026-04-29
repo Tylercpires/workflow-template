@@ -54,10 +54,12 @@ jobs:
                   grouped[subject].append(body)
 
           sections = []
-          for subject, bodies in grouped.items():
+          for subject, bodies in sorted(grouped.items()):
               section = f'## {subject}'
               if bodies:
                   section += '\n\n' + '\n'.join(bodies)
+              else:
+                  section += '\n\n- No changes listed'
               sections.append(section)
 
           print('\n\n'.join(sections))
